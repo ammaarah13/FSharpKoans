@@ -32,7 +32,7 @@ module ``14: List operations are so easy, you could make them yourself!`` =
         let length (xs : 'a list) : int =
           let rec listlength list len =  // write a function to find the length of a list
              match list with
-             |_::tail -> listlength tail (len+1)
+             |_::b -> listlength b (len+1)
              |_ -> len
           match xs with 
           |[] -> 0
@@ -52,11 +52,12 @@ module ``14: List operations are so easy, you could make them yourself!`` =
     [<Test>]
     let ``03 Reversing a list, the hard way`` () =
         let rev (xs : 'a list) : 'a list =  // write a function to reverse a list here.
-           let rec reverselist accumulator =
-               function
-               |[]-> accumulator
-               |a::xs -> reverselist (a::accumulator) xs
-           reverselist [] xs
+           let rec reverselist xs acc =
+               match xs with
+               |[] -> acc
+               |a::b -> reverselist b (a::acc)
+           reverselist xs []
+
         rev [9;8;7] |> should equal [7;8;9]
         rev [] |> should equal []
         rev [0] |> should equal [0]
@@ -76,9 +77,10 @@ module ``14: List operations are so easy, you could make them yourself!`` =
         let map (xs : int list) : int list =
           let rec maplist list acc = // write a map which adds 1 to each element
                match list with
-               | [] -> acc 
-               | a::b -> maplist b ((a+1)::(acc))
+               | [] -> List.rev acc 
+               | a::b -> maplist b ((a+1)::acc)
           maplist xs []
+
         map [1; 2; 3; 4] |> should equal [2; 3; 4; 5]
         map [9; 8; 7; 6] |> should equal [10; 9; 8; 7]
         map [15; 2; 7] |> should equal [16; 3; 8]
@@ -89,13 +91,10 @@ module ``14: List operations are so easy, you could make them yourself!`` =
     let ``06 Fixed-function mapping, the hard way (part 2).`` () =
         let map (xs : int list) : int list =
           let rec maplist list acc = // write a function which doubles each element
-               let double a = a*2  
                match list with
-               | [] -> []  
-               | a::b -> (double a) :: maplist xs b
-          match xs with 
-          |[] -> []
-          |_ -> maplist xs []
+               | [] -> List.rev acc 
+               | a::b -> maplist b ((a*2)::acc)
+          maplist xs []
         map [1; 2; 3; 4] |> should equal [2; 4; 6; 8]
         map [9; 8; 7; 6] |> should equal [18; 16; 14; 12]
         map [15; 2; 7] |> should equal [30; 4; 14]
@@ -314,23 +313,14 @@ or something else), it's likely that you'll be able to use a fold.
     [<Test>]
     let ``19 partition: splitting a list based on a criterion`` () =
         let partition (f : 'a -> bool) (xs : 'a list) : ('a list) * ('a list) =
-           (* let rec partitionlist list passedacc failedacc = // Does this: https://msdn.microsoft.com/en-us/library/ee353782.aspx
-                match list with 
-                |[] -> passedacc,failedacc
-                |a::b -> match f a with
-                         |true -> partitionlist b (a::passedacc) failedacc
-                         |_ -> partitionlist b passedacc (a::failedacc)
-                //|_ ->passedacc, failedacc
-            partitionlist xs [] [] *)
-          let rec partitionlist list passed failed = // Does this: https://msdn.microsoft.com/en-us/library/ee353782.aspx
+          let rec partitionlist list (passed,failed) = // Does this: https://msdn.microsoft.com/en-us/library/ee353782.aspx
              match list with 
-             | [] -> (passed),(failed)
+             | [] -> ((List.rev passed),(List.rev failed))
              | a::b -> 
                 match f a with
-                | true -> partitionlist b (a::passed) failed
-                | _ -> partition b passed (failed)
-                  |(List.rev passed),(List.rev failed)
-          part xs [] []
+                | true -> partitionlist b ((a::passed),failed)
+                | false -> partitionlist b (passed,(a::failed))
+          partitionlist xs ([],[])
 
         let a, b = partition (fun x -> x%2=0) [1;2;3;4;5;6;7;8;9;10]
         a |> should equal [2;4;6;8;10]
@@ -350,7 +340,12 @@ or something else), it's likely that you'll be able to use a fold.
     [<Test>]
     let ``20 init: creating a list based on a size and a function`` () =
         let init (n : int) (f : int -> 'a) : 'a list =
-            __ // Does this: https://msdn.microsoft.com/en-us/library/ee370497.aspx
+            let rec initlist len acc = // Does this: https://msdn.microsoft.com/en-us/library/ee370497.aspx
+                match len < n with
+                |true -> initlist (len+1) (f len::acc)
+                |false -> List.rev acc
+            initlist 0 []
+            
         init 10 (fun x -> x*2) |> should equal [0;2;4;6;8;10;12;14;16;18]
         init 4 (sprintf "(%d)") |> should equal ["(0)";"(1)";"(2)";"(3)"]
 
@@ -358,7 +353,14 @@ or something else), it's likely that you'll be able to use a fold.
     [<Test>]
     let ``21 tryFind: find the first matching element, if any`` () =
         let tryFind (p : 'a -> bool) (xs : 'a list) : 'a option =
-            __ // Does this: https://msdn.microsoft.com/en-us/library/ee353506.aspx
+            let rec tryFindfunc list acc = // Does this: https://msdn.microsoft.com/en-us/library/ee353506.aspx
+               match list with
+               |[] -> None
+               |a::b -> match (p a) with
+                        |true -> Some a
+                        |false -> tryFindfunc b acc
+            tryFindfunc xs None
+
         tryFind (fun x -> x<=45) [100;85;25;55;6] |> should equal (Some 25)
         tryFind (fun x -> x>450) [100;85;25;55;6] |> should equal None
 
@@ -366,7 +368,14 @@ or something else), it's likely that you'll be able to use a fold.
     [<Test>]
     let ``22 tryPick: find the first matching element, if any, and transform it`` () =
         let tryPick (p : 'a -> 'b option) (xs : 'a list) : 'b option =
-            __ // Does this: https://msdn.microsoft.com/en-us/library/ee353814.aspx
+            let rec tryPickfunc list = // Does this: https://msdn.microsoft.com/en-us/library/ee353814.aspx
+                  match list with 
+                  |[] -> None
+                  |a::b -> match (p a) with
+                           |None -> tryPickfunc b
+                           |Some _ -> p a
+            tryPickfunc xs
+
         let f x =
             match x<=45 with
             | true -> Some(x*2)
@@ -396,7 +405,13 @@ or something else), it's likely that you'll be able to use a fold.
         // - why can't it take an 'a->'b, instead of an 'a->'b option ?
         // - why does it return a 'b list, and not a 'b list option ?
         let choose (p : 'a -> 'b option) (xs : 'a list) : 'b list =
-            __ // Does this: https://msdn.microsoft.com/en-us/library/ee353456.aspx
+              let rec chooseFunc list acc = // Does this: https://msdn.microsoft.com/en-us/library/ee353456.aspx
+                 match list with
+                 |[] -> List.rev acc
+                 |a::b -> match p a with
+                          |None -> chooseFunc b acc
+                          |Some a -> chooseFunc b  (a::acc)
+              chooseFunc xs []
         let f x =
             match x<=45 with
             | true -> Some(x*2)
@@ -414,7 +429,12 @@ or something else), it's likely that you'll be able to use a fold.
     [<Test>]
     let ``24 mapi: like map, but passes along an item index as well`` () =
         let mapi (f : int -> 'a -> 'b) (xs : 'a list) : 'b list =
-            __ // Does this: https://msdn.microsoft.com/en-us/library/ee353425.aspx
+            let rec mapiFunc list acc len = // Does this: https://msdn.microsoft.com/en-us/library/ee353425.aspx
+                match list with 
+                |[] ->List.rev acc
+                |a::b -> mapiFunc b (f len a::acc) (len+1)
+            mapiFunc xs [] 0
+
         mapi (fun i x -> -i, x+1) [9;8;7;6] |> should equal [0,10; -1,9; -2,8; -3,7]
         let hailstone i t =
             match i%2 with
